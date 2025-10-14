@@ -38,7 +38,8 @@ python scripts/embed_and_index_photos.py \
   --blend-alpha-text 0.55 --blend-max-images 3
 
 # 2) Index photos with vectors + GPS/time + predicted_peaks
-
+export ES_URL="http://localhost:9200"
+export ES_API_KEY_B64="<base64_id:api_key>"
 python scripts/embed_and_index_photos.py \
   --index-photos \
   --images data/images \
@@ -123,24 +124,83 @@ _TAGS = {v: k for k, v in ExifTags.TAGS.items()}
 _GPSTAGS = ExifTags.GPSTAGS
 
 
-def _ratio_to_float(x) -> float:
-    """PIL can return a Rational or a (num, den) tuple; normalize to float."""
+from PIL import Image, ExifTags
+from PIL.ExifTags import IFD, GPSTAGS
+
+# optional fallback for JPEG/HEIC EXIF bytes
+try:
+    import piexif
+except Exception:
+    piexif = None
+
+def _ratio_to_float(x):
+    # supports PIL IFDRational, (num, den) tuples, or floats
     try:
         return float(x.numerator) / float(x.denominator)
     except Exception:
-        try:
-            return float(x[0]) / float(x[1])
-        except Exception:
-            return float(x)
+        if isinstance(x, tuple) and len(x) == 2:
+            return float(x[0]) / float(x[1] or 1.0)
+        return float(x)
 
-
-def _dms_to_deg(d, m, s, ref) -> float:
-    deg = _ratio_to_float(d) + _ratio_to_float(m) / 60.0 + _ratio_to_float(s) / 3600.0
-    if isinstance(ref, bytes):
-        ref = ref.decode(errors="ignore")
-    if (ref or "").upper() in ("S", "W"):
+def _dms_to_deg(dms, ref):
+    d, m, s = (_ratio_to_float(dms[0]), _ratio_to_float(dms[1]), _ratio_to_float(dms[2]))
+    deg = d + m/60.0 + s/3600.0
+    ref = ref.decode(errors="ignore") if isinstance(ref, (bytes, bytearray)) else str(ref)
+    if ref in ("S", "W"):
         deg = -deg
     return deg
+
+def get_gps_decimal(path: str):
+    # --- Preferred: dereference the GPS sub-IFD via Pillow ---
+    try:
+        with Image.open(path) as im:
+            exif = im.getexif()
+            gps_ifd = None
+
+            # exif.get(IFD.GPSInfo) returns an INT offset (e.g., 2448) in many files.
+            # Use get_ifd(IFD.GPSInfo) to fetch the actual GPS dict.
+            if hasattr(exif, "get_ifd"):
+                try:
+                    gps_ifd = exif.get_ifd(IFD.GPSInfo)
+                except Exception:
+                    gps_ifd = None
+
+            if gps_ifd:
+                gps = {GPSTAGS.get(k, k): v for k, v in gps_ifd.items()}
+                lat = gps.get("GPSLatitude")
+                lon = gps.get("GPSLongitude")
+                lat_ref = gps.get("GPSLatitudeRef", "N")
+                lon_ref = gps.get("GPSLongitudeRef", "E")
+                if lat and lon:
+                    return {
+                        "lat": _dms_to_deg(lat, lat_ref),
+                        "lon": _dms_to_deg(lon, lon_ref),
+                    }
+
+            # --- Fallback: parse raw EXIF bytes with piexif (JPEG/HEIC) ---
+            if piexif:
+                exif_bytes = im.info.get("exif")
+                if exif_bytes:
+                    try:
+                        ex = piexif.load(exif_bytes)
+                        gps_ifd = ex.get("GPS") or {}
+                        lat = gps_ifd.get(piexif.GPSIFD.GPSLatitude)
+                        lon = gps_ifd.get(piexif.GPSIFD.GPSLongitude)
+                        lat_ref = gps_ifd.get(piexif.GPSIFD.GPSLatitudeRef, b"N")
+                        lon_ref = gps_ifd.get(piexif.GPSIFD.GPSLongitudeRef, b"E")
+                        if lat and lon:
+                            return {
+                                "lat": _dms_to_deg(lat, lat_ref),
+                                "lon": _dms_to_deg(lon, lon_ref),
+                            }
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+    # Nothing worked
+    return None
+
 
 
 def get_exif(image_path: str) -> Dict[str, Any]:
@@ -160,12 +220,14 @@ def get_gps_from_exif(exif: Dict[str, Any]) -> Optional[Dict[str, float]]:
     GPSInfo key is often 34853. Some images store an *int* here (odd but real).
     Guard carefully so we never crash on malformed EXIF.
     """
-    gps_ifd = exif.get(_TAGS.get("GPSInfo", 34853))
+    gps_ifd = exif.get(ExifTags.TAGS.get("GPSInfo", 34853))
     if not gps_ifd or isinstance(gps_ifd, int):
+        print(gps_ifd)
         return None
 
     try:
         gps = {_GPSTAGS.get(k, k): v for k, v in gps_ifd.items()}
+        print(gps)
         lat_vals = gps.get("GPSLatitude")
         lat_ref = gps.get("GPSLatitudeRef", "N")
         lon_vals = gps.get("GPSLongitude")
@@ -462,7 +524,7 @@ def bulk_index_photos(
             top_names = []
 
         # 3) EXIF enrichment (safe)
-        gps = get_gps(str(p))
+        gps = get_gps_decimal(str(p))
         shot = get_shot_time(str(p))
 
         # 4) Build doc and stage for bulk
