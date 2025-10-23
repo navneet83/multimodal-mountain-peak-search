@@ -228,15 +228,15 @@ flowchart LR
 
 **Search by name (with geo-fence):**
 ```bash
-python scripts/query_by_peak.py --peak "Ama Dablam" --k 30 --num-candidates 4000 \
+python scripts/query_by_peak_name.py --peak "Ama Dablam" --k 30 --num-candidates 4000 \
   --lat 27.93 --lon 86.90 --distance 120km
 ```
 
 **Identify + similar (with confidence):**
 ```bash
-python scripts/identify_and_similar.py --image data/images/IMG_0001.jpg --neighbors 30
+python scripts/identify_from_picture_find_similar_peaks.py --image data/images/IMG_0001.jpg --neighbors 30
 # or use the image vector directly:
-python scripts/identify_and_similar.py --image data/images/IMG_0001.jpg --use-image-query
+python scripts/identify_from_picture_find_similar_peaks.py --image data/images/IMG_0001.jpg --use-image-query
 ```
 
 ---
