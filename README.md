@@ -3,7 +3,7 @@
 > **Mountain peak identification & image search** with **SigLIP2** embeddings on **Elasticsearch** (vector DB).  
 > Text ↔ image queries, kNN, EXIF geo, and a Streamlit demo.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/navneet83/multimodal-mountain-peak-search/blob/main/notebooks/01_quickstart_colab.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/navneet83/multimodal-mountain-peak-search/blob/main/notebooks/multimodal_mountain_peak_search.ipynb)
 
 ---
 ## Demo Video:
@@ -75,7 +75,7 @@ multimodal-mountain-peak-search/
 │   ├── training_peaks/<peak_id>/*           # 1–3 reference photos per peak (optional, improves accuracy)
 │   └── images/**/*                 # photo library (put your own images here)
 └── notebooks/
-    ├── 01_quickstart_colab.ipynb
+    ├── multimodal_mountain_peak_search.ipynb
 ```
 
 ---
@@ -176,7 +176,7 @@ streamlit run scripts/app.py
 
 ## Notebooks
 
-- **Google Colab**: `notebooks/02_quickstart_colab.ipynb` (with Colab badge at top)
+- **Google Colab**: `notebooks/multimodal_mountain_peak_search.ipynb` (with Colab badge at top)
 
 ---
 
