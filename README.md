@@ -12,24 +12,30 @@ https://github.com/user-attachments/assets/e5fa3812-896d-4982-97b7-13753dc82e6f
 
 
 ---
-## TL;DR — 5 commands
+## TL;DR — 7 commands
 
 ```bash
-# 1) Install
+# 1) Create Python virtual environment
+python -m venv venv  # creates a new, isolated Python environment in a subdirectory named venv
+
+# 2) Activate Python virtual environment
+source venv/bin/activate
+
+# 3) Install
 pip install -r requirements.txt  # or see "Install" below
 
-# 2) Configure ES (env) — pick one auth path
+# 4) Configure ES (env) — pick one auth path
 export ES_URL="http://localhost:9200"
 export ES_API_KEY_B64="<base64_id:api_key>"
 
-# 3) Create indices (dense_vector + HNSW)
+# 5) Create indices (dense_vector + HNSW)
 python scripts/create_indices.py
 
-# 4) Index peaks (blended text+image prototypes) + your photos
+# 6) Index peaks (blended text+image prototypes) + your photos
 python scripts/embed_and_index_photos.py --index-peaks --peaks-yaml data/peaks.yaml --peaks-images-root data/peaks
 python scripts/embed_and_index_photos.py --index-photos --images data/images --topk-predicted 5
 
-# 5) Run the UI
+# 7) Run the UI
 streamlit run scripts/app.py
 ```
 
